@@ -5,10 +5,10 @@ import re
 
 app = FastAPI()
 
-# ✅ Allow requests from your frontend
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You can restrict this to your Vercel URL later
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,21 +23,31 @@ def scan_prompt(input_data: PromptInput):
     issues = []
     score = "Low"
 
+    # Check for common prompt injection patterns
     if re.search(r"ignore (all )?previous instructions", prompt):
         issues.append("Possible prompt injection: 'ignore previous instructions'")
     if re.search(r"disregard", prompt):
         issues.append("Potential override instruction: 'disregard'")
     if re.search(r"forget.*you were told", prompt):
         issues.append("Prompt manipulation: 'forget previous context'")
-    if re.search(r"(api[_-]?key|token|password|secret)", prompt):
-        issues.append("Sensitive info found: possible API key or password")
-    if re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+", prompt):
+
+    # Check for sensitive data patterns
+    if re.search(r"(api[_-]?key|token|password|secret|access[_-]?token|bearer|sk_live|sk_test|pk_live|pk_test)", prompt):
+        issues.append("Sensitive keyword detected (e.g., token, API key, secret)")
+    if re.search(r"[a-zA-Z0-9_]{20,}[_-]?(key|token|secret)", prompt):
+        issues.append("Long string resembling a secret or token")
+    if re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", prompt):
         issues.append("Email address detected — could be a data leak")
 
+    # Determine risk score
     if len(issues) >= 3:
         score = "High"
     elif len(issues) == 2:
         score = "Medium"
+    elif len(issues) == 1:
+        score = "Low"
+    else:
+        score = "Low"
 
     return {
         "risk_score": score,
