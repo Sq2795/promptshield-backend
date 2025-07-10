@@ -39,22 +39,17 @@ def scan_prompt(input_data: PromptInput):
     if re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", prompt):
         issues.append("Email address detected — could be a data leak")
 
-    # Determine risk score
-    if len(issues) >= 3:
+        # Determine risk score (severity-based)
+    high_risk = any(kw in issue.lower() for issue in issues for kw in ["api key", "token", "password", "secret", "injection", "override"])
+    
+    if high_risk:
         score = "High"
-    elif len(issues) == 2:
+    elif len(issues) >= 2:
         score = "Medium"
     elif len(issues) == 1:
         score = "Low"
     else:
         score = "Low"
 
-    return {
-        "risk_score": score,
-        "issues_found": issues,
-        "recommendations": [
-            "Avoid using open-ended instructions like 'ignore previous instructions'",
-            "Never include secrets (tokens, passwords, emails) in prompts",
-            "Use strict role-based prompts and validate all user inputs"
         ]
     }
