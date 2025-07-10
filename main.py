@@ -1,8 +1,18 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import re
 
 app = FastAPI()
+
+# ✅ Allow requests from your frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # You can restrict this to your Vercel URL later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class PromptInput(BaseModel):
     prompt: str
@@ -13,21 +23,17 @@ def scan_prompt(input_data: PromptInput):
     issues = []
     score = "Low"
 
-    # Check for common prompt injection patterns
     if re.search(r"ignore (all )?previous instructions", prompt):
         issues.append("Possible prompt injection: 'ignore previous instructions'")
     if re.search(r"disregard", prompt):
         issues.append("Potential override instruction: 'disregard'")
     if re.search(r"forget.*you were told", prompt):
         issues.append("Prompt manipulation: 'forget previous context'")
-
-    # Check for sensitive data patterns
     if re.search(r"(api[_-]?key|token|password|secret)", prompt):
         issues.append("Sensitive info found: possible API key or password")
-    if re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", prompt):
+    if re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+", prompt):
         issues.append("Email address detected — could be a data leak")
 
-    # Determine risk score
     if len(issues) >= 3:
         score = "High"
     elif len(issues) == 2:
